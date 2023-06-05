@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  backend:
+    ports:
+      - "${BACKEND_GUNICORN_PORT}:${BACKEND_GUNICORN_PORT}"
+    container_name: ${STACK_NAME?Variable not set}_backend
+    restart: on-failure
+    depends_on:
+      - db
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+
+  frontend:
+    container_name: ${STACK_NAME?Variable not set}_frontend
+    depends_on:
+      - backend
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+    restart: always
+    ports:
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
+    environment:
+      - PORT=${FRONTEND_PORT}
+    env_file:
+      - .env
+
+  db:
+    container_name: ${STACK_NAME?Variable not set}_db
+    image: mysql:8.0
+    cap_add:
+      - SYS_NICE
+    restart: always
+    environment:
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    ports:
+      - '${MYSQL_PUBLIC_PORT}:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql:rw # persistent volume
+      #- mysql-data-ram:/var/lib/mysql:rw # ram/memory volume
+      - ./my.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf # config mysql server
+    env_file:
+      - .env
+
+  adminer:
+    container_name: ${STACK_NAME?Variable not set}_adminer
+    image: adminer
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "${ADMINER_PORT}:8080"
+
+
+volumes:
+  mysql-data:
+    driver: local
